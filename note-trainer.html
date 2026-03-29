@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Note Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e12;
+    --surface: #16161d;
+    --surface2: #1e1e28;
+    --border: rgba(255,255,255,0.07);
+    --accent: #7b6cff;
+    --accent-dim: rgba(123,108,255,0.15);
+    --accent-glow: rgba(123,108,255,0.35);
+    --text: #f0eeff;
+    --text-muted: rgba(240,238,255,0.4);
+    --text-dim: rgba(240,238,255,0.2);
+    --beat-off: rgba(255,255,255,0.08);
+    --beat-on: #7b6cff;
+    --stop: #ff6b6b;
+  }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body {
+    padding: 2rem 1rem;
+    background-image: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(123,108,255,0.08) 0%, transparent 70%);
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  header h1 {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0.8;
+  }
+
+  .note-stage {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3rem 2rem 2.5rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    min-height: 210px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .note-stage::before {
+    content: '';
+    position: absolute;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 200px;
+    background: var(--accent-glow);
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  .note-stage.playing::before { opacity: 1; }
+
+  .note-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 96px;
+    font-weight: 300;
+    line-height: 1;
+    letter-spacing: -4px;
+    color: var(--text);
+    transition: opacity 0.1s;
+    min-height: 96px;
+  }
+
+  .note-name.flash {
+    animation: noteflash 0.12s ease;
+  }
+
+  @keyframes noteflash {
+    0% { opacity: 0.2; transform: scale(0.96); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .enharmonic {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    letter-spacing: 0.05em;
+    min-height: 20px;
+  }
+
+  .idle-text {
+    font-size: 14px;
+    color: var(--text-dim);
+    font-weight: 300;
+    letter-spacing: 0.05em;
+  }
+
+  .beat-track {
+    display: flex;
+    gap: 7px;
+    justify-content: center;
+    margin-top: 1.75rem;
+    flex-wrap: wrap;
+  }
+
+  .beat-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--beat-off);
+    transition: background 0.07s, box-shadow 0.07s;
+  }
+
+  .beat-dot.on {
+    background: var(--beat-on);
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+
+  .controls {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .ctrl {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ctrl-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .ctrl-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .ctrl-val {
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+
+  input[type=range]:active::-webkit-slider-thumb {
+    transform: scale(1.2);
+  }
+
+  input[type=range]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+  }
+
+  .seg {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .seg-btn {
+    flex: 1;
+    padding: 8px 0;
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .seg-btn:not(:last-child) {
+    border-right: 1px solid var(--border);
+  }
+
+  .seg-btn.on {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .play-btn {
+    width: 100%;
+    padding: 13px;
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    background: var(--accent-dim);
+    border: 1px solid rgba(123,108,255,0.3);
+    border-radius: 12px;
+    color: var(--accent);
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    margin-top: 0.25rem;
+  }
+
+  .play-btn:hover {
+    background: rgba(123,108,255,0.25);
+    border-color: rgba(123,108,255,0.5);
+  }
+
+  .play-btn.stop {
+    background: rgba(255,107,107,0.12);
+    border-color: rgba(255,107,107,0.3);
+    color: var(--stop);
+  }
+
+  .play-btn.stop:hover {
+    background: rgba(255,107,107,0.2);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Note Trainer</h1>
+  </header>
+
+  <div class="note-stage" id="stage">
+    <div class="idle-text" id="idle">press start</div>
+    <div class="note-name" id="note-name" style="display:none"></div>
+    <div class="enharmonic" id="enharmonic" style="display:none"></div>
+    <div class="beat-track" id="beat-track"></div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <div class="ctrl-head">
+        <span class="ctrl-label">BPM</span>
+        <span class="ctrl-val" id="bpm-val">80</span>
+      </div>
+      <input type="range" id="bpm" min="40" max="240" value="80" step="1">
+    </div>
+
+    <div class="ctrl">
+      <div class="ctrl-head">
+        <span class="ctrl-label">Beats per note</span>
+        <span class="ctrl-val" id="beats-val">2</span>
+      </div>
+      <input type="range" id="beats" min="1" max="8" value="2" step="1">
+    </div>
+
+    <div class="ctrl">
+      <div class="ctrl-head">
+        <span class="ctrl-label">Show</span>
+      </div>
+      <div class="seg" id="mode-seg">
+        <button class="seg-btn on" data-val="sharps">Sharps</button>
+        <button class="seg-btn" data-val="flats">Flats</button>
+        <button class="seg-btn" data-val="both">Both</button>
+      </div>
+    </div>
+
+    <button class="play-btn" id="play-btn">Start</button>
+  </div>
+</div>
+
+<script>
+  const SHARPS = ['A','A#','B','C','C#','D','D#','E','F','F#','G','G#'];
+  const FLATS  = ['A','Bb','B','C','Db','D','Eb','E','F','Gb','G','Ab'];
+  const ENHARMONIC = {
+    'A#':'Bb','Bb':'A#','C#':'Db','Db':'C#',
+    'D#':'Eb','Eb':'D#','F#':'Gb','Gb':'F#','G#':'Ab','Ab':'G#'
+  };
+
+  let bpm = 80, beats = 2, mode = 'sharps';
+  let running = false, intervalId = null, beatCount = 0, currentNote = '';
+
+  const bpmSlider = document.getElementById('bpm');
+  const beatsSlider = document.getElementById('beats');
+  const bpmVal = document.getElementById('bpm-val');
+  const beatsVal = document.getElementById('beats-val');
+  const noteNameEl = document.getElementById('note-name');
+  const enharmonicEl = document.getElementById('enharmonic');
+  const idleEl = document.getElementById('idle');
+  const beatTrack = document.getElementById('beat-track');
+  const playBtn = document.getElementById('play-btn');
+  const stage = document.getElementById('stage');
+
+  bpmSlider.addEventListener('input', () => {
+    bpm = +bpmSlider.value;
+    bpmVal.textContent = bpm;
+    if (running) restart();
+  });
+
+  beatsSlider.addEventListener('input', () => {
+    beats = +beatsSlider.value;
+    beatsVal.textContent = beats;
+    buildDots();
+    if (running) restart();
+  });
+
+  document.getElementById('mode-seg').querySelectorAll('.seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      mode = btn.dataset.val;
+      if (running) pickNote();
+    });
+  });
+
+  playBtn.addEventListener('click', () => running ? stop() : start());
+
+  function buildDots() {
+    beatTrack.innerHTML = '';
+    for (let i = 0; i < beats; i++) {
+      const d = document.createElement('div');
+      d.className = 'beat-dot';
+      beatTrack.appendChild(d);
+    }
+  }
+
+  function updateDots() {
+    beatTrack.querySelectorAll('.beat-dot').forEach((d, i) => {
+      d.classList.toggle('on', i < beatCount);
+    });
+  }
+
+  function pickNote() {
+    let pool;
+    if (mode === 'sharps') pool = SHARPS;
+    else if (mode === 'flats') pool = FLATS;
+    else pool = [...new Set([...SHARPS, ...FLATS])];
+
+    let note;
+    do { note = pool[Math.floor(Math.random() * pool.length)]; }
+    while (note === currentNote && pool.length > 1);
+    currentNote = note;
+
+    noteNameEl.classList.remove('flash');
+    void noteNameEl.offsetWidth;
+    noteNameEl.classList.add('flash');
+    noteNameEl.textContent = note;
+
+    const enh = ENHARMONIC[note];
+    enharmonicEl.textContent = enh ? '= ' + enh : '';
+
+    beatCount = 0;
+    updateDots();
+  }
+
+  function tick() {
+    beatCount++;
+    if (beatCount > beats) { pickNote(); beatCount = 1; }
+    updateDots();
+  }
+
+  function start() {
+    running = true;
+    playBtn.textContent = 'Stop';
+    playBtn.classList.add('stop');
+    stage.classList.add('playing');
+    idleEl.style.display = 'none';
+    noteNameEl.style.display = '';
+    enharmonicEl.style.display = '';
+    buildDots();
+    pickNote();
+    beatCount = 1;
+    updateDots();
+    intervalId = setInterval(tick, 60000 / bpm);
+  }
+
+  function stop() {
+    running = false;
+    clearInterval(intervalId);
+    intervalId = null;
+    playBtn.textContent = 'Start';
+    playBtn.classList.remove('stop');
+    stage.classList.remove('playing');
+    idleEl.style.display = '';
+    noteNameEl.style.display = 'none';
+    enharmonicEl.style.display = 'none';
+    beatCount = 0;
+    buildDots();
+    currentNote = '';
+  }
+
+  function restart() {
+    clearInterval(intervalId);
+    intervalId = setInterval(tick, 60000 / bpm);
+  }
+
+  buildDots();
+</script>
+</body>
+</html>
